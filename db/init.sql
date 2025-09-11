@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS projects (
 
 -- For test purposes
 INSERT INTO projects (name, completed, time) VALUES
-('First Project', false, 120),
-('Second Project', true, 90);
+('First Project', false, 132),
+('Second Project', false, 943),
+('Third Project', false, 0),
+('Fourth Project', true, 7456),
+('Fifth Project', true, 9355);
 
