@@ -1,6 +1,7 @@
 use axum::{Json, Router, extract::Extension, routing::get};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Serialize, FromRow)]
 struct Project {
@@ -10,22 +11,26 @@ struct Project {
     time: i32,
 }
 
-async fn get_projects(Extension(db): Extension<PgPool>) -> Json<Vec<Project>> {
-    let projects = sqlx::query_as::<_, Project>("SELECT * FROM projects")
-        .fetch_all(&db)
+async fn init_db() -> PgPool {
+    let database_url = "postgres://needlesync:secret@localhost:5432/needlesync";
+    PgPool::connect(database_url)
         .await
-        .unwrap_or_default();
-
-    Json(projects)
+        .expect("Failed to connect to database")
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let db_pool = init_db().await;
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/projects", get(get_projects))
-        .layer(Extension(db_pool));
+        .layer(Extension(db_pool))
+        .layer(cors);
 
     let addr = "127.0.0.1:8080";
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -36,10 +41,11 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn init_db() -> PgPool {
-    let database_url = "postgres://needlesync:secret@localhost:5432/needlesync";
-    PgPool::connect(database_url)
+async fn get_projects(Extension(db): Extension<PgPool>) -> Json<Vec<Project>> {
+    let projects = sqlx::query_as::<_, Project>("SELECT * FROM projects")
+        .fetch_all(&db)
         .await
-        .expect("Failed to connect to database")
-}
+        .unwrap_or_default();
 
+    Json(projects)
+}
