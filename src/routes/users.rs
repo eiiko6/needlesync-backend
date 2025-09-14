@@ -1,7 +1,10 @@
 use axum::{Extension, Json, Router, http::StatusCode, routing::post};
 use sqlx::PgPool;
+use validator::ValidateEmail;
 
 use crate::auth::{LoginPayload, LoginResponse, create_jwt, hash_password, verify_password};
+
+const DUMMY_HASH: &str = "$argon2id$v=19$m=4096,t=3,p=1$YWFhYWFhYWFhYWFhYWFhYQ$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 #[derive(sqlx::FromRow, serde::Serialize)]
 pub struct User {
@@ -32,18 +35,24 @@ pub async fn login(
         .bind(&payload.email)
         .fetch_optional(&db)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error".into()))?
-        .ok_or((StatusCode::UNAUTHORIZED, "Invalid credentials".into()))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error".into()))?;
 
-    if !verify_password(&user.password_hash, &payload.password) {
+    let (user_id, password_hash) = if let Some(u) = user {
+        (u.id, u.password_hash)
+    } else {
+        // timing shield
+        (0, DUMMY_HASH.to_string())
+    };
+
+    if !verify_password(&password_hash, &payload.password) || user_id == 0 {
         return Err((StatusCode::UNAUTHORIZED, "Invalid credentials".into()));
     }
 
-    let token = create_jwt(user.id).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    let token = create_jwt(user_id).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
     Ok(Json(LoginResponse {
-        id: user.id,
-        email: user.email,
+        id: user_id,
+        email: payload.email,
         token,
     }))
 }
@@ -54,8 +63,19 @@ pub async fn register_user(
 ) -> Result<StatusCode, (StatusCode, String)> {
     if payload.email.is_empty() || payload.username.is_empty() || payload.password.is_empty() {
         return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             "Cannot create a user with empty fields".into(),
+        ));
+    }
+
+    if !ValidateEmail::validate_email(&payload.email) {
+        return Err((StatusCode::BAD_REQUEST, "Invalid email format".into()));
+    }
+
+    if payload.password.len() < 8 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Password must be at least 8 characters long".into(),
         ));
     }
 

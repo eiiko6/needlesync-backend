@@ -1,4 +1,7 @@
-use axum::{Extension, Router};
+use axum::{
+    Extension, Router,
+    http::{Method, header},
+};
 use tower_http::cors::{Any, CorsLayer};
 
 mod auth;
@@ -11,8 +14,8 @@ async fn main() -> anyhow::Result<()> {
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]);
 
     let app = Router::new()
         .merge(routes::users::routes())
@@ -28,4 +31,3 @@ async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-

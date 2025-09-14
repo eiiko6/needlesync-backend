@@ -73,6 +73,13 @@ async fn create_project(
         return Err((StatusCode::FORBIDDEN, "Forbidden".to_string()));
     }
 
+    if payload.name.is_empty() {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Name cannot be empty".into(),
+        ));
+    }
+
     let result = sqlx::query(
         "INSERT INTO projects (user_id, name, completed, time) VALUES ($1, $2, $3, $4)",
     )
@@ -85,6 +92,6 @@ async fn create_project(
 
     match result {
         Ok(_) => Ok(StatusCode::CREATED),
-        Err(err) => Err((StatusCode::INTERNAL_SERVER_ERROR, err.to_string())),
+        Err(_) => Err((StatusCode::INTERNAL_SERVER_ERROR, "Database error".into())),
     }
 }
