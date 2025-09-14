@@ -1,9 +1,9 @@
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE,
     username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    email TEXT
+    password_hash TEXT NOT NULL
 );
 
 -- Projects table linked to users
